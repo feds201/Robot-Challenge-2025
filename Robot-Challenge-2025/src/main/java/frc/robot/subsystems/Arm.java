@@ -10,7 +10,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.LimelightThreeBase.LEDState;
 
 public class Arm extends SubsystemBase {
-  TalonFX motor = new TalonFX(4); //checking commit
+  TalonFX motor = new TalonFX(8); //checking commit
   TurretLimelight ll = new TurretLimelight("limelight-num", LEDState.OFF);
   /** Creates a new Arm. */
   public Arm() {}
