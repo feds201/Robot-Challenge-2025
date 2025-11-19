@@ -43,28 +43,19 @@ public class TurretSubsystem extends SubsystemBase {
         Tx = LimelightHelpers.getTX("limelight");
         Ty = LimelightHelpers.getTY("limelight");
 
-        if (cTurretState == TurretState.SPIN) {
-
-            startMotor(0.1);
-
-        } else if (cTurretState == TurretState.FIND_TARGET) {
-
-            if (!targetAvailable()) {
-
-                startMotor(0.01); // slow scan
-
-            } else {
-
-                stopMotor();
-
-                controller.setSetpoint(targetAngle());
-                double output = controller.calculate(getAngle());
-                startMotor(output);
-
-                if (controller.atSetpoint()) {
-                    GoToState(TurretState.IDLE);
-                }
-            }
+        switch (cTurretState) {
+            case LOCKING_TARGET:
+                ActForLOCKING_TARGET();
+                break;
+            case SPIN:
+                ActForSPIN();
+                break;
+            case FIND_TARGET:
+                ActForFIND_TARGET();
+                break;
+            default:
+                ActForIDLE();
+                break;
         }
     }
 
@@ -115,5 +106,42 @@ public class TurretSubsystem extends SubsystemBase {
 
     public void GoToState(TurretState targetState) {
         cTurretState = targetState;
+    }
+
+    private void ActForSPIN() {
+        startMotor(0.1);
+    }
+
+    private void ActForIDLE() {
+        stopMotor();
+    }
+
+    private void ActForFIND_TARGET() {
+        if (!targetAvailable()) {
+
+            startMotor(0.01); // slow scan
+
+        } else {
+
+            stopMotor();
+
+            controller.setSetpoint(targetAngle());
+            double output = controller.calculate(getAngle());
+            startMotor(output);
+
+            if (controller.atSetpoint()) {
+                GoToState(TurretState.IDLE);
+            }
+        }
+    }
+
+    private void ActForLOCKING_TARGET() {
+        if (!targetAvailable()) {
+            startMotor(0.01);
+        } else {
+            stopMotor();
+            controller.setSetpoint(targetAngle());
+        }
+
     }
 }
