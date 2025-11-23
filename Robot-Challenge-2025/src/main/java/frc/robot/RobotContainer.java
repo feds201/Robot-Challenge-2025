@@ -6,13 +6,20 @@ package frc.robot;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.robot.subsystems.TurretState;
+import frc.robot.subsystems.TurretSubsystem;
 
 public class RobotContainer {
+    private CommandXboxController controller = new CommandXboxController(0);
+    private TurretSubsystem turretSubsystem = new TurretSubsystem();
   public RobotContainer() {
     configureBindings();
   }
 
-  private void configureBindings() {}
+    private void configureBindings() {
+        controller.x().onTrue(turretSubsystem.SetToState(TurretState.TRACK_TARGET));
+    }
 
   public Command getAutonomousCommand() {
     return Commands.print("No autonomous command configured");
