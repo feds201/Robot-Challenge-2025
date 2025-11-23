@@ -1,61 +1,90 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package frc.robot.subsystems;
 
-import com.ctre.phoenix6.hardware.CANcoder;
+
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.LimelightHelpers;
 
 public class TurretSubsystem extends SubsystemBase {
-    private TalonFX turret_motor = new TalonFX(21);
-    private CANcoder turret_encoder = new CANcoder(31);
+
+    private final double camOffsetX = 2;
+    private final double camOffsetY = 3;
+    private final double limelightAltitude = 10;
+    //    Electronics
+    private TalonFX turret_motor;
+    private TalonFXConfiguration turret_config;
 
     private double Tx;
     private double Ty;
     private boolean Tv;
+    private TurretState current_State;
+    private PIDController controller;
 
-    private TurretState cTurretState = TurretState.IDLE;
-    private PIDController controller = new PIDController(0, 0, 0);
 
-    // Limelight physical offsets relative to turret center
-    private final double camOffsetX = 3.0; // inches left (+) or right (-)
-    private final double camOffsetY = 2.0; // inches forward (+) or backward (-)
-
-    double limelightMountAngleDegrees = 41;
-    double limelightLensHeightInches = 25;
-    double goalHeightInches = 15; // replace with actual height
-
-    public enum TurretState {
-        LOCKING_TARGET, SPIN, FIND_TARGET, IDLE;
-    }
 
     public TurretSubsystem() {
+        current_State = TurretState.IDLE;
+        turret_motor = new TalonFX(21);
+        controller = new PIDController(0.05, 0, 0);
+        controller.setTolerance(2);
+        turret_config = new TalonFXConfiguration();
+        turret_config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
+        turret_config.Feedback.FeedbackRemoteSensorID = 31;
+        turret_config.Feedback.RotorToSensorRatio = 25;
+        turret_config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 360;
+        turret_config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
+        turret_config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
+        turret_config.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
     }
 
-    @Override
+
     public void periodic() {
+        Tx = LimelightHelpers.getTX("limelight-vision");
+        Ty = LimelightHelpers.getTY("limelight-vision");
+        Tv = LimelightHelpers.getTV("limelight-vision");
 
-        Tv = LimelightHelpers.getTV("limelight");
-        Tx = LimelightHelpers.getTX("limelight");
-        Ty = LimelightHelpers.getTY("limelight");
-
-        switch (cTurretState) {
-            case LOCKING_TARGET:
-                ActForLOCKING_TARGET();
-                break;
-            case SPIN:
-                ActForSPIN();
+        switch (current_State) {
+            case TRACK_TARGET:
+                stopMotor();
                 break;
             case FIND_TARGET:
-                ActForFIND_TARGET();
-                break;
+                ActionForFIND_TARGET();
             default:
-                ActForIDLE();
-                break;
+                ActionForIDLE();
+        }
+
+    }
+
+    public void ActionForIDLE() {
+        stopMotor();
+    }
+
+    public void ActionForFIND_TARGET() {
+        if (!targetPresent()) {
+            startMotor(0.01);
+        } else {
+            stopMotor();
+            controller.setSetpoint(wrapAngle(getTargetAngle()));
+            startMotor(controller.calculate(getAngle()));
+
+            if (controller.atSetpoint()) {
+                current_State = TurretState.IDLE;
+            }
+        }
+    }
+
+    public void ActionForTRACK_TARGET() {
+        if (!targetPresent()) {
+            startMotor(0.01);
+        } else {
+            stopMotor();
+            controller.setSetpoint(wrapAngle(getTargetAngle()));
+            startMotor(controller.calculate(getAngle()));
         }
     }
 
@@ -68,80 +97,38 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     public double getAngle() {
-        // assumes CANcoder is configured to return degrees
-        return turret_encoder.getPosition().getValueAsDouble();
+        return turret_motor.getPosition().getValueAsDouble();
     }
 
-    private double getDistance() {
-
+    public double getDistance() {
+        double limelightMountAngleDegrees = 0;
         double angleToGoalDegrees = limelightMountAngleDegrees + Ty;
         double angleToGoalRadians = Math.toRadians(angleToGoalDegrees);
 
-        return (goalHeightInches - limelightLensHeightInches) / Math.tan(angleToGoalRadians);
+        return (36 - limelightAltitude) / Math.tan(angleToGoalRadians);
     }
 
-    /**
-     * Computes turret aiming angle based on:
-     * - Limelight Tx
-     * - distance to target
-     * - camera offset relative to turret center
-     */
-    private double targetAngle() {
-
+    public double getTargetAngle() {
         double distance = getDistance();
+        double txRAD = Math.toRadians(Tx);
 
-        double txRad = Math.toRadians(Tx);
+        double targetX = camOffsetX + distance * Math.sin(txRAD);
+        double targetY = camOffsetY + distance * Math.cos(txRAD);
 
-        // Target position relative to turret center
-        double targetX = camOffsetX + distance * Math.sin(txRad);
-        double targetY = camOffsetY + distance * Math.cos(txRad);
-
-        // Return angle (radians) turret should point toward
-        return Math.atan2(targetX, targetY);
+        return Math.atan2(targetY, targetX);
     }
 
-    public boolean targetAvailable() {
+    public boolean targetPresent() {
         return Tv;
     }
 
-    public void GoToState(TurretState targetState) {
-        cTurretState = targetState;
+    public Command SetToState(TurretState state) {
+        return new InstantCommand(() -> current_State = state);
     }
 
-    private void ActForSPIN() {
-        startMotor(0.1);
+    public double wrapAngle(double targetAngle) {
+        return Math.floorMod((int) targetAngle, 360);
     }
 
-    private void ActForIDLE() {
-        stopMotor();
-    }
-
-    private void ActForFIND_TARGET() {
-        if (!targetAvailable()) {
-
-            startMotor(0.01); // slow scan
-
-        } else {
-
-            stopMotor();
-
-            controller.setSetpoint(targetAngle());
-            double output = controller.calculate(getAngle());
-            startMotor(output);
-
-            if (controller.atSetpoint()) {
-                GoToState(TurretState.IDLE);
-            }
-        }
-    }
-
-    private void ActForLOCKING_TARGET() {
-        if (!targetAvailable()) {
-            startMotor(0.01);
-        } else {
-            stopMotor();
-            controller.setSetpoint(targetAngle());
-        }
-
-    }
 }
+
