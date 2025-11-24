@@ -29,18 +29,29 @@ public class TurretSubsystem extends SubsystemBase {
 
     public TurretSubsystem() {
         current_State = TurretState.IDLE;
+
         turret_motor = new TalonFX(21);
+
         controller = new PIDController(0.05, 0, 0);
         controller.setTolerance(2);
+        controller.enableContinuousInput(0, 360); // <<< add this
+
         turret_config = new TalonFXConfiguration();
         turret_config.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
         turret_config.Feedback.FeedbackRemoteSensorID = 31;
         turret_config.Feedback.RotorToSensorRatio = 25;
-        turret_config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 360;
+
+        // Soft limits ARE IN ROTATIONS, not degrees
+        turret_config.SoftwareLimitSwitch.ForwardSoftLimitThreshold = 1;  // 1 rotation = 360°
         turret_config.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
+
         turret_config.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
         turret_config.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
+
+        // You MUST apply it
+        turret_motor.getConfigurator().apply(turret_config);
     }
+
 
 
     public void periodic() {
@@ -97,7 +108,7 @@ public class TurretSubsystem extends SubsystemBase {
     }
 
     public double getAngle() {
-        return turret_motor.getPosition().getValueAsDouble();
+        return turret_motor.getPosition().getValueAsDouble() * 360.0;
     }
 
     public double getDistance() {
@@ -110,13 +121,14 @@ public class TurretSubsystem extends SubsystemBase {
 
     public double getTargetAngle() {
         double distance = getDistance();
-        double txRAD = Math.toRadians(Tx);
+        double txRad = Math.toRadians(Tx);
 
-        double targetX = camOffsetX + distance * Math.sin(txRAD);
-        double targetY = camOffsetY + distance * Math.cos(txRAD);
+        double targetX = camOffsetX + distance * Math.sin(txRad);
+        double targetY = camOffsetY + distance * Math.cos(txRad);
 
-        return Math.atan2(targetY, targetX);
+        return Math.toDegrees(Math.atan2(targetX, targetY));
     }
+
 
     public boolean targetPresent() {
         return Tv;
@@ -126,9 +138,11 @@ public class TurretSubsystem extends SubsystemBase {
         return new InstantCommand(() -> current_State = state);
     }
 
-    public double wrapAngle(double targetAngle) {
-        return Math.floorMod((int) targetAngle, 360);
+    public double wrapAngle(double angleDeg) {
+        angleDeg %= 360;
+        return (angleDeg < 0) ? angleDeg + 360 : angleDeg;
     }
+
 
 }
 
