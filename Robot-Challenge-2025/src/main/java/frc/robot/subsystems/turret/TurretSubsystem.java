@@ -1,4 +1,4 @@
-package frc.robot.subsystems;
+package frc.robot.subsystems.turret;
 
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
@@ -141,6 +141,10 @@ public class TurretSubsystem extends SubsystemBase {
     public double wrapAngle(double angleDeg) {
         angleDeg %= 360;
         return (angleDeg < 0) ? angleDeg + 360 : angleDeg;
+    }
+
+    public TurretState getState() {
+        return current_State;
     }
 
 

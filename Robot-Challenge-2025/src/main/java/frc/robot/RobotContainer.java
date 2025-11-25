@@ -7,8 +7,8 @@ package frc.robot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import frc.robot.subsystems.TurretState;
-import frc.robot.subsystems.TurretSubsystem;
+import frc.robot.subsystems.turret.TurretState;
+import frc.robot.subsystems.turret.TurretSubsystem;
 
 public class RobotContainer {
     private CommandXboxController controller = new CommandXboxController(0);
