@@ -4,12 +4,18 @@
 
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.Radians;
+
+import edu.wpi.first.units.measure.Angle;
 // import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightThreeBase;
 
 /** Add your docs here. */
 public class TurretLimelight extends LimelightThreeBase {
     private final double aprilTagHeight = 3; //feet
+    private final double groundToLimelightHeight = 2; //feet
+
+    //Angle between the center of limelight FOV and the imaginary side connecting the origin of the limelight to the origin of the arm.
     private final double constAngle = 0; //Radians
     private final double originToLimelightAngle = 0; //Radians
     private final double goalHeight = 0; //feet
@@ -19,21 +25,25 @@ public class TurretLimelight extends LimelightThreeBase {
         super(llName, defaultLEDState);
     }
 
+    //calculates distance between limelight and wall of april tag
     public double calculateDistance()
   {
-    double distance = Math.tan(aprilTagHeight)/getNetworkTableEntry("ty").getDouble(0);
+    double distance = (aprilTagHeight-groundToLimelightHeight)/Math.tan(getNetworkTableEntry("ty").getDouble(0));
     return distance; 
   }
 
-  public double calculateAngle()
+  //calculates angle between arm origin and april tag itself
+  public Angle calculateAngle()
   {
-    double fullDistance = calculateDistance();
+    double fullDistance = distanceTarget();
 
-    return Math.atan2(goalHeight-armAORHeight, fullDistance);
+    return Radians.of(Math.atan2(goalHeight-armAORHeight, fullDistance));
 }
 
+//calculates distance between arm origin and wall of april tag
 public double distanceTarget()
 {
+
 double distance = calculateDistance();
 double angleLimelight = constAngle - getNetworkTableEntry("tx").getDouble(0);
 double distanceTarget = (Math.sin(angleLimelight)*distance)/(Math.sin(originToLimelightAngle));

@@ -4,6 +4,10 @@
 
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.Rotations;
+
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
@@ -12,6 +16,7 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
+import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -23,15 +28,15 @@ public class Arm extends SubsystemBase {
 
   public enum armState{
     //Straight out
-    ZERO(0),
-    TARGETING(90),
+    ZERO(Radians.of(0)),
+    TARGETING(Degrees.of(90)),
     //Straight up
-    STOW(90);
-    private double angle;
-    armState(double angle){
+    STOW(Rotations.of(.25));
+    private Angle angle;
+    armState(Angle angle){
       this.angle = angle;
     }
-    public double getAngle(){
+    public Angle getAngle(){
       return angle;
     }
   }
@@ -89,8 +94,8 @@ public class Arm extends SubsystemBase {
 
   }
 
-  public double getAngle(){
-    return turretArmEncoder.getAbsolutePosition().getValueAsDouble();
+  public Angle getAngle(){
+    return turretArmEncoder.getAbsolutePosition().getValue();
   }
 
   public void setState(armState state){
@@ -101,15 +106,15 @@ public class Arm extends SubsystemBase {
   /*
    * Set the position of the motor, and command the motor to track to that position
    */
-  public void setPosition(double setpoint){
+  public void setPosition(Angle setpoint){
     turretArmMotor.setControl(motionMagic.withPosition(setpoint));
   }
 
   public boolean atSetPoint(){
-    double angle = getAngle();
-    double desiredAngle = state.getAngle();
-    double tolerance = 0.03;
-    if (Math.abs(desiredAngle - angle) < tolerance){
+    Angle angle = getAngle();
+    Angle desiredAngle = state.getAngle();
+    Angle tolerance = Degrees.of(1);
+    if (Math.abs(desiredAngle.minus(angle).abs(Degrees)) < tolerance.abs(Degrees)){
       return true;
     } else {
       return false;
