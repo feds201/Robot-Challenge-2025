@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module version="4">
+  <component name="AdditionalModuleElements">
+    <content url="file://$MODULE_DIR$/../../Robot-Challenge-2025" dumb="true">
+      <excludeFolder url="file://$MODULE_DIR$/../../Robot-Challenge-2025/.vscode" />
+      <excludeFolder url="file://$MODULE_DIR$/../../Robot-Challenge-2025/.wpilib" />
+      <excludeFolder url="file://$MODULE_DIR$/../../Robot-Challenge-2025/gradle" />
+    </content>
+  </component>
+</module>
