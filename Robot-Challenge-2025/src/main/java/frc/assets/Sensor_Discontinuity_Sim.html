@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absolute Sensor Discontinuity Simulator</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-blue: #4dabf7;
+            --accent-red: #ff6b6b;
+            --accent-green: #51cf66;
+            --accent-yellow: #fcc419;
+            --hard-stop: #555;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #bbb;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        canvas {
+            background-color: #000;
+            border-radius: 8px;
+            border: 1px solid #444;
+            margin-bottom: 10px;
+            cursor: crosshair;
+        }
+
+        .controls {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        label {
+            font-size: 0.9em;
+            font-weight: 600;
+            min-width: 120px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            margin: 0 10px;
+            accent-color: var(--accent-blue);
+            min-width: 150px;
+        }
+
+        .range-red {
+            accent-color: var(--accent-red);
+        }
+
+        .range-grey {
+            accent-color: #888;
+        }
+
+        button {
+            background-color: var(--accent-blue);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #3b8dbf;
+        }
+
+        .value-box {
+            font-family: monospace;
+            background: #000;
+            border: 1px solid #444;
+            padding: 5px 10px;
+            border-radius: 4px;
+            min-width: 60px;
+            text-align: right;
+            color: var(--accent-green);
+        }
+
+        .info-tag {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .status-display {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+
+        .instruction-box {
+            background: rgba(255, 165, 0, 0.15);
+            border-left: 4px solid orange;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+<h1>AbsoluteSensorDiscontinuityPoint</h1>
+<p class="subtitle">Where does your sensor "wrap" around?</p>
+
+<div class="container">
+
+    <!-- SENSOR VIEW -->
+    <div class="panel">
+        <h3>Physical Turret</h3>
+        <div class="status-display">
+            Angle: <span id="magAngle" style="color:var(--accent-blue)">0°</span>
+        </div>
+        <canvas id="sensorCanvas" width="350" height="350"></canvas>
+        <div class="info-tag">Drag blue dot to rotate. Grey area is Hard Stop.</div>
+
+        <div class="controls" style="margin-top:20px;">
+            <div class="control-row">
+                <label style="color:#aaa">Hard Stop Pos</label>
+                <input type="range" id="stopPosSlider" min="0" max="360" value="180" class="range-grey">
+                <div class="value-box" id="stopPosDisp" style="color:#aaa">180°</div>
+            </div>
+            <div class="control-row">
+                <label style="color:#aaa">Travel Range</label>
+                <input type="range" id="travelSlider" min="180" max="360" value="340" class="range-grey">
+                <div class="value-box" id="travelDisp" style="color:#aaa">340°</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OUTPUT GRAPH -->
+    <div class="panel">
+        <h3>Software Output</h3>
+        <div class="status-display">
+            Output: <span id="outValue" style="color:var(--accent-green)">0.00</span> rot
+        </div>
+
+        <div class="instruction-box" id="guideBox">
+            <strong>Goal:</strong> Move the Red Dashed Line until it is hidden inside the Grey Zone.
+        </div>
+
+        <canvas id="graphCanvas" width="450" height="200"></canvas>
+
+        <div class="controls">
+            <div class="control-row">
+                <label style="color:var(--accent-red)">Discontinuity</label>
+                <input type="range" id="discSlider" min="-0.5" max="0.5" step="0.01" value="0" class="range-red">
+                <div class="value-box" id="discDisplay" style="color:var(--accent-red)">0.0</div>
+            </div>
+
+            <div class="info-tag">
+                Range: [<span id="rangeStart">0.0</span>, <span id="rangeEnd">1.0</span>) rotations
+            </div>
+            <hr style="border:0; border-top:1px solid #444; width:100%; margin: 10px 0;">
+            <div class="control-row">
+                <button id="btnSpin">Auto-Spin</button>
+                <button id="btnReset" style="background-color: #555;">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- STATE ---
+    const state = {
+        rawAngleDeg: 0,      // Physical angle 0-360
+        discontinuity: 0,    // Config value (-0.5 to 0.5 usually)
+        outputRot: 0,        // Resulting output in rotations
+
+        hardStopCenter: 180, // Angle where the stop is centered
+        travelRange: 340,    // How many degrees the turret can move
+
+        isSpinning: false,
+        history: [],
+        historyMax: 200
+    };
+
+    // --- DOM ---
+    const sensorCanvas = document.getElementById('sensorCanvas');
+    const sensorCtx = sensorCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+
+    const discSlider = document.getElementById('discSlider');
+    const discDisplay = document.getElementById('discDisplay');
+    const stopPosSlider = document.getElementById('stopPosSlider');
+    const stopPosDisp = document.getElementById('stopPosDisp');
+    const travelSlider = document.getElementById('travelSlider');
+    const travelDisp = document.getElementById('travelDisp');
+
+    const rangeStart = document.getElementById('rangeStart');
+    const rangeEnd = document.getElementById('rangeEnd');
+    const magAngleDisp = document.getElementById('magAngle');
+    const outValueDisp = document.getElementById('outValue');
+    const btnSpin = document.getElementById('btnSpin');
+    const btnReset = document.getElementById('btnReset');
+    const guideBox = document.getElementById('guideBox');
+
+    // --- LOGIC ---
+
+    function calculateOutput() {
+        // 1. Normalize raw angle to rotations (0.0 to 1.0)
+        let rawRot = (state.rawAngleDeg % 360) / 360.0;
+        if (rawRot < 0) rawRot += 1.0;
+
+        // 2. Apply Discontinuity Logic (CTRE Style)
+        let distFromStart = rawRot - state.discontinuity;
+
+        // Wrap into [0, 1)
+        distFromStart = distFromStart - Math.floor(distFromStart);
+
+        // Add back offset
+        state.outputRot = distFromStart + state.discontinuity;
+
+        // Update Text
+        magAngleDisp.innerText = state.rawAngleDeg.toFixed(1) + "°";
+        outValueDisp.innerText = state.outputRot.toFixed(3);
+
+        discDisplay.innerText = state.discontinuity.toFixed(2);
+        rangeStart.innerText = state.discontinuity.toFixed(2);
+        rangeEnd.innerText = (state.discontinuity + 1.0).toFixed(2);
+
+        // Check if Safe
+        // Calculate Discontinuity Angle in 0-360
+        let discAngle = (state.discontinuity * 360) % 360;
+        if (discAngle < 0) discAngle += 360;
+
+        // Calculate Stop Range
+        const stopWidth = 360 - state.travelRange;
+        const stopStart = (state.hardStopCenter - stopWidth / 2 + 360) % 360;
+        const stopEnd = (state.hardStopCenter + stopWidth / 2 + 360) % 360;
+
+        let isSafe = false;
+        // Simple check if discAngle is inside the wedge
+        // Handle wrap around wedge logic
+        if (stopStart < stopEnd) {
+            if (discAngle >= stopStart && discAngle <= stopEnd) isSafe = true;
+        } else {
+            if (discAngle >= stopStart || discAngle <= stopEnd) isSafe = true;
+        }
+
+        if (isSafe) {
+            guideBox.style.borderLeft = "4px solid #51cf66";
+            guideBox.style.background = "rgba(81, 207, 102, 0.15)";
+            guideBox.innerHTML = "<strong>SAFE!</strong> The wrap point is hidden inside the hard stop.";
+        } else {
+            guideBox.style.borderLeft = "4px solid #ff6b6b";
+            guideBox.style.background = "rgba(255, 107, 107, 0.15)";
+            guideBox.innerHTML = "<strong>UNSAFE!</strong> The sensor might wrap (jump values) while moving.";
+        }
+    }
+
+    // --- INTERACTION ---
+    let isDragging = false;
+
+    function getAngleFromMouse(e) {
+        const rect = sensorCanvas.getBoundingClientRect();
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const x = e.clientX - rect.left - cx;
+        const y = e.clientY - rect.top - cy;
+        // atan2 returns -PI to PI. Convert to degrees 0-360
+        let deg = Math.atan2(y, x) * (180 / Math.PI);
+        return deg + 90; // Align 0 to top
+    }
+
+    sensorCanvas.addEventListener('mousedown', (e) => {
+        state.isSpinning = false;
+        isDragging = true;
+        state.rawAngleDeg = getAngleFromMouse(e);
+        calculateOutput();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            state.rawAngleDeg = getAngleFromMouse(e);
+            calculateOutput();
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    discSlider.addEventListener('input', () => {
+        state.discontinuity = parseFloat(discSlider.value);
+        calculateOutput();
+    });
+
+    stopPosSlider.addEventListener('input', () => {
+        state.hardStopCenter = parseFloat(stopPosSlider.value);
+        stopPosDisp.innerText = state.hardStopCenter + "°";
+        calculateOutput();
+    });
+
+    travelSlider.addEventListener('input', () => {
+        state.travelRange = parseFloat(travelSlider.value);
+        travelDisp.innerText = state.travelRange + "°";
+        calculateOutput();
+    });
+
+    btnSpin.addEventListener('click', () => {
+        state.isSpinning = !state.isSpinning;
+    });
+
+    btnReset.addEventListener('click', () => {
+        state.isSpinning = false;
+        state.rawAngleDeg = 0;
+        state.discontinuity = 0;
+        discSlider.value = 0;
+        state.hardStopCenter = 180;
+        stopPosSlider.value = 180;
+        state.history = [];
+        calculateOutput();
+    });
+
+    // --- RENDER ---
+    function drawSensor() {
+        sensorCtx.clearRect(0, 0, sensorCanvas.width, sensorCanvas.height);
+        const cx = sensorCanvas.width / 2;
+        const cy = sensorCanvas.height / 2;
+        const radius = 100;
+
+        sensorCtx.save();
+        sensorCtx.translate(cx, cy);
+
+        // 1. Draw Travel Range (Green Arc)
+        const stopWidth = 360 - state.travelRange;
+        // Center is hardStopCenter.
+        // Travel is the opposite part.
+        // Start angle of STOP wedge:
+        const stopStartRad = ((state.hardStopCenter - stopWidth / 2) - 90) * Math.PI / 180;
+        const stopEndRad = ((state.hardStopCenter + stopWidth / 2) - 90) * Math.PI / 180;
+
+        // Draw Full Circle Outline
+        sensorCtx.beginPath();
+        sensorCtx.arc(0, 0, radius, 0, Math.PI * 2);
+        sensorCtx.strokeStyle = '#333';
+        sensorCtx.lineWidth = 20;
+        sensorCtx.stroke();
+
+        // Draw HARD STOP Wedge (Grey)
+        sensorCtx.beginPath();
+        sensorCtx.arc(0, 0, radius, stopStartRad, stopEndRad);
+        sensorCtx.strokeStyle = '#555'; // Hard Stop Color
+        sensorCtx.lineWidth = 20;
+        sensorCtx.stroke();
+
+        // Draw Text Label for Hard Stop
+        sensorCtx.save();
+        let labelAngle = (state.hardStopCenter - 90) * Math.PI / 180;
+        sensorCtx.translate(Math.cos(labelAngle) * (radius + 35), Math.sin(labelAngle) * (radius + 35));
+        sensorCtx.fillStyle = '#777';
+        sensorCtx.font = "bold 12px sans-serif";
+        sensorCtx.textAlign = "center";
+        sensorCtx.fillText("HARD STOP", 0, 0);
+        sensorCtx.restore();
+
+        // 2. Draw "Discontinuity" Line (Red Dashed)
+        let discAngleRad = (state.discontinuity * 360 - 90) * (Math.PI / 180);
+
+        sensorCtx.beginPath();
+        sensorCtx.moveTo(0, 0);
+        sensorCtx.lineTo(Math.cos(discAngleRad) * (radius + 20), Math.sin(discAngleRad) * (radius + 20));
+        sensorCtx.strokeStyle = '#ff6b6b';
+        sensorCtx.lineWidth = 3;
+        sensorCtx.setLineDash([5, 5]);
+        sensorCtx.stroke();
+        sensorCtx.setLineDash([]);
+
+        // Label Discontinuity
+        sensorCtx.fillStyle = '#ff6b6b';
+        sensorCtx.font = "12px sans-serif";
+        sensorCtx.fillText("WRAP", Math.cos(discAngleRad) * (radius + 30) - 15, Math.sin(discAngleRad) * (radius + 30));
+
+        // 3. Draw Magnet Needle
+        let angleRad = (state.rawAngleDeg - 90) * (Math.PI / 180);
+        sensorCtx.rotate(angleRad);
+
+        // Needle
+        sensorCtx.beginPath();
+        sensorCtx.moveTo(-10, 0);
+        sensorCtx.lineTo(10, 0);
+        sensorCtx.lineTo(0, -radius + 10);
+        sensorCtx.fillStyle = '#4dabf7';
+        sensorCtx.fill();
+
+        // Handle Dot
+        sensorCtx.beginPath();
+        sensorCtx.arc(0, -radius, 10, 0, Math.PI * 2);
+        sensorCtx.fillStyle = '#4dabf7';
+        sensorCtx.fill();
+        sensorCtx.strokeStyle = '#fff';
+        sensorCtx.lineWidth = 2;
+        sensorCtx.stroke();
+
+        sensorCtx.restore();
+    }
+
+    function drawGraph() {
+        graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+        const w = graphCanvas.width;
+        const h = graphCanvas.height;
+        const padding = 30;
+
+        // Draw Axis
+        graphCtx.strokeStyle = '#444';
+        graphCtx.lineWidth = 1;
+        graphCtx.beginPath();
+        graphCtx.moveTo(padding, 0);
+        graphCtx.lineTo(padding, h); // Y axis
+        graphCtx.moveTo(padding, h / 2);
+        graphCtx.lineTo(w, h / 2);   // X axis
+        graphCtx.stroke();
+
+        // Update History
+        state.history.push(state.outputRot);
+        if (state.history.length > state.historyMax) state.history.shift();
+
+        // Plot Data
+        graphCtx.beginPath();
+        graphCtx.strokeStyle = '#51cf66';
+        graphCtx.lineWidth = 2;
+
+        const scaleY = (h / 2.5);
+
+        for (let i = 0; i < state.history.length; i++) {
+            const x = padding + (i / state.historyMax) * (w - padding);
+            const val = state.history[i];
+            const y = (h / 2) - (val * scaleY);
+
+            if (i > 0 && Math.abs(val - state.history[i - 1]) > 0.8) {
+                graphCtx.moveTo(x, y); // Skip jump
+            } else {
+                if (i === 0) graphCtx.moveTo(x, y);
+                else graphCtx.lineTo(x, y);
+            }
+        }
+        graphCtx.stroke();
+
+        // Limits visualization
+        graphCtx.fillStyle = '#888';
+        graphCtx.font = "10px monospace";
+        graphCtx.fillText("Top", 0, (h / 2) - (0.8 * scaleY));
+        graphCtx.fillText("Btm", 0, (h / 2) - (-0.8 * scaleY));
+    }
+
+    function loop() {
+        if (state.isSpinning) {
+            // Bounce off hard stops if they exist? No, user requested just spinning visual
+            // But for realism, let's just wrap around
+            state.rawAngleDeg = (state.rawAngleDeg + 2) % 360;
+            calculateOutput();
+        }
+
+        drawSensor();
+        drawGraph();
+        requestAnimationFrame(loop);
+    }
+
+    // Init
+    calculateOutput();
+    loop();
+
+</script>
+</body>
+</html>
