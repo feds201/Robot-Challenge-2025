@@ -1,6 +1,5 @@
 package frc.robot.subsystems.turret;
 
-
 import com.ctre.phoenix6.configs.FeedbackConfigs;
 import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.configs.SoftwareLimitSwitchConfigs;
@@ -10,6 +9,7 @@ import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
+import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.units.measure.Angle;
@@ -25,6 +25,9 @@ import static frc.robot.RobotMap.TurretMap.*;
 
 public class TurretSubsystem extends SubsystemBase {
 
+    /**
+     * The TalonFX motor controller for the turret.
+     */
     private final TalonFX turretMotor;
 
     private TurretState currentState;
@@ -32,7 +35,6 @@ public class TurretSubsystem extends SubsystemBase {
     private Angle tX, tY;
     private Boolean tV;
     private Boolean searchDirectionRight;
-
 
     public TurretSubsystem() {
 
@@ -61,22 +63,37 @@ public class TurretSubsystem extends SubsystemBase {
 
         motor_config.Feedback = motor_feedback_config;
         motor_config.SoftwareLimitSwitch = motor_software_limitSwitch_config;
+        motor_config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
         motor_config.Slot0 = Slot0Configs.from(motor_slot_config.getConfig(0));
 
         turretMotor.getConfigurator().apply(motor_config);
 
     }
 
+    /**
+     * Returns the current angle the turret is facing.
+     *
+     * @return The current angle of the turret in rotations.
+     */
     public Angle turretFacingAngle() {
         return turretMotor.getPosition().getValue();
     }
 
+    /**
+     * Checks if a target is currently available according to Limelight.
+     *
+     * @return True if a target is available, false otherwise.
+     */
     public boolean targetAvailable() {
         return tV;
     }
 
+    /**
+     * Calculates the horizontal distance to the target based on Limelight data.
+     *
+     * @return The calculated distance to the target.
+     */
     public Distance distanceCalculation() {
-        // Units here depend on RobotMap. Ensure RobotMap uses Inches/Meters consistently.
         Distance opposite = TARGET_ALTITUDE.minus(LIMELIGHT_ALTITUDE);
         Angle theta = tY.plus(LIMELIGHT_MOUNTING_ANGLE);
 
@@ -85,6 +102,11 @@ public class TurretSubsystem extends SubsystemBase {
         return Distance.ofBaseUnits(distance, Meter);
     }
 
+    /**
+     * Calculates the angle the turret needs to turn to face the target.
+     *
+     * @return The calculated angle offset to the target.
+     */
     public Angle targetAngleCalculation() {
         Distance distance = distanceCalculation();
         Distance opposite = distance.times(Math.tan(tX.in(Radians))).plus(CAMERA_OFFSET_X);
@@ -92,19 +114,34 @@ public class TurretSubsystem extends SubsystemBase {
         return Radians.of(Math.atan(opposite.in(Meter) / adjacent.in(Meter)));
     }
 
+    /**
+     * Sets the current state of the turret.
+     *
+     * @param state The new state for the turret.
+     * @return An InstantCommand that sets the turret's state.
+     */
     public Command setState(TurretState state) {
         return new InstantCommand(() -> currentState = state, this);
     }
 
+    /**
+     * Implements the default behavior for the turret, which is to stop and brake.
+     */
     public void ActDefault() {
         turretMotor.stopMotor();
         turretMotor.setNeutralMode(NeutralModeValue.Brake);
     }
 
+    /**
+     * Commands the turret to return to its home position (0 rotations).
+     */
     public void ActHome() {
         turretMotor.setControl(new PositionVoltage(0).withPosition(0));
     }
 
+    /**
+     * Implements the search behavior for the turret, rotating back and forth within its limits.
+     */
     public void ActSearch() {
         double currentRotation = turretFacingAngle().in(Rotations);
         double searchSpeed = 0.26;
@@ -120,6 +157,9 @@ public class TurretSubsystem extends SubsystemBase {
         turretMotor.setControl(new VelocityVoltage(0).withVelocity(RadiansPerSecond.of(finalVelocity)));
     }
 
+    /**
+     * Implements the tracking behavior for the turret, aiming at the detected target.
+     */
     public void ActTracking() {
         Angle currentAngle = turretFacingAngle();
         Angle offsetAngle = targetAngleCalculation();
@@ -130,6 +170,9 @@ public class TurretSubsystem extends SubsystemBase {
         turretMotor.setControl(new PositionVoltage(0).withPosition(clampedAngle));
     }
 
+    /**
+     * This method is called periodically by the scheduler. It updates Limelight data and executes the current turret state's action.
+     */
     @Override
     public void periodic() {
         super.periodic();
@@ -158,9 +201,7 @@ public class TurretSubsystem extends SubsystemBase {
             default:
                 ActDefault();
 
-
         }
 
     }
 }
-
