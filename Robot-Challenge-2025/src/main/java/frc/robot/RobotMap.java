@@ -8,8 +8,8 @@ import static edu.wpi.first.units.Units.Inch;
 
 public class RobotMap {
     public static class TurretMap {
-        public static final int TURRET_MOTOR_ID = 21;
-        public static final int TURRET_ENCODER_ID = 31;
+        public static final int TURRET_MOTOR_ID = 61;
+        public static final int TURRET_ENCODER_ID = 62;
         public static final double MOTOR_TO_SENSOR = (double) 60; // 60:1
         public static final double SENSOR_TO_MECHANISM = 1 / 1.2; // 1:1.2
         public static final Distance TARGET_ALTITUDE = Distance.ofBaseUnits(36, Inch);

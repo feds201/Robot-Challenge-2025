@@ -60,7 +60,6 @@ public class TurretSubsystem extends SubsystemBase {
         motor_software_limitSwitch_config.ForwardSoftLimitThreshold = 0.48;
         motor_software_limitSwitch_config.ReverseSoftLimitThreshold = -0.48;
 
-
         motor_config.Feedback = motor_feedback_config;
         motor_config.SoftwareLimitSwitch = motor_software_limitSwitch_config;
         motor_config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
@@ -136,7 +135,7 @@ public class TurretSubsystem extends SubsystemBase {
      * Commands the turret to return to its home position (0 rotations).
      */
     public void ActHome() {
-        turretMotor.setControl(new PositionVoltage(0).withPosition(0));
+        turretMotor.setControl(new PositionVoltage(turretFacingAngle()).withPosition(0));
     }
 
     /**
