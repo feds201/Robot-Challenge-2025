@@ -1,24 +1,32 @@
 package frc.robot.subsystems.turret;
 
-import com.ctre.phoenix6.configs.FeedbackConfigs;
-import com.ctre.phoenix6.configs.Slot0Configs;
-import com.ctre.phoenix6.configs.SoftwareLimitSwitchConfigs;
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.configs.*;
+import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
-import com.ctre.phoenix6.signals.InvertedValue;
-import com.ctre.phoenix6.signals.GravityTypeValue;
-import com.ctre.phoenix6.signals.NeutralModeValue;
+import com.ctre.phoenix6.signals.*;
+import com.ctre.phoenix6.sim.CANcoderSimState;
+import com.ctre.phoenix6.sim.TalonFXSimState;
+
+import edu.wpi.first.math.VecBuilder;
+import edu.wpi.first.math.system.LinearSystem;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.Distance;
+import edu.wpi.first.wpilibj.CAN;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.SlotConfig;
+import frc.robot.utils.SubsystemStatusManager;
 
 import static edu.wpi.first.units.Units.*;
 import static frc.robot.RobotMap.TurretMap.*;
@@ -29,19 +37,40 @@ public class TurretSubsystem extends SubsystemBase {
      * The TalonFX motor controller for the turret.
      */
     private final TalonFX turretMotor;
+    private final CANcoder turretEncoder;
+
+    // 1. Handles for the CTRE Simulation "State"
+    private final TalonFXSimState motorSimState;
+    private final CANcoderSimState encoderSimState;
+
+    // 2. The WPILib Physics Engine
+    private final DCMotorSim turretSim;
 
     private TurretState currentState;
 
     private Angle tX, tY;
     private Boolean tV;
-    private Boolean searchDirectionRight;
+    private Boolean searchDirectionRight = true;
+
+
+
 
     public TurretSubsystem() {
-
-        currentState = TurretState.Default;
-
+        
+        currentState = TurretState.Search;
+        
         turretMotor = new TalonFX(TURRET_MOTOR_ID);
-        CANcoder turretEncoder = new CANcoder(TURRET_ENCODER_ID);
+        turretEncoder = new CANcoder(TURRET_ENCODER_ID);
+
+        motorSimState = turretMotor.getSimState();
+        encoderSimState = turretEncoder.getSimState();
+
+        CANcoderConfiguration encoder_config = new CANcoderConfiguration();
+        encoder_config.MagnetSensor.MagnetOffset = 0.5;
+        encoder_config.MagnetSensor.SensorDirection = SensorDirectionValue.Clockwise_Positive;
+        encoder_config.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5;
+
+        turretEncoder.getConfigurator().apply(encoder_config);
 
         TalonFXConfiguration motor_config = new TalonFXConfiguration();
         FeedbackConfigs motor_feedback_config = new FeedbackConfigs();
@@ -49,16 +78,16 @@ public class TurretSubsystem extends SubsystemBase {
         SoftwareLimitSwitchConfigs motor_software_limitSwitch_config = new SoftwareLimitSwitchConfigs();
 
         motor_feedback_config.SensorToMechanismRatio = SENSOR_TO_MECHANISM;
-        motor_feedback_config.RotorToSensorRatio = MOTOR_TO_SENSOR;
-        motor_feedback_config.FeedbackSensorSource = FeedbackSensorSourceValue.RemoteCANcoder;
+        motor_feedback_config.RotorToSensorRatio = 0;
+        motor_feedback_config.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
         motor_feedback_config.FeedbackRemoteSensorID = turretEncoder.getDeviceID();
 
         // Soft Limits (Protect Cables)
-        motor_software_limitSwitch_config.ForwardSoftLimitEnable = true;
-        motor_software_limitSwitch_config.ReverseSoftLimitEnable = true;
-        // Limit to approx +/- 175 degrees to be safe
-        motor_software_limitSwitch_config.ForwardSoftLimitThreshold = 0.48;
-        motor_software_limitSwitch_config.ReverseSoftLimitThreshold = -0.48;
+        // motor_software_limitSwitch_config.ForwardSoftLimitEnable = true;
+        // motor_software_limitSwitch_config.ReverseSoftLimitEnable = true;
+        // // Limit to approx +/- 175 degrees to be safe
+        // motor_software_limitSwitch_config.ForwardSoftLimitThreshold = 0.3;
+        // motor_software_limitSwitch_config.ReverseSoftLimitThreshold = -0.69;
 
         motor_config.Feedback = motor_feedback_config;
         motor_config.SoftwareLimitSwitch = motor_software_limitSwitch_config;
@@ -66,6 +95,16 @@ public class TurretSubsystem extends SubsystemBase {
         motor_config.Slot0 = Slot0Configs.from(motor_slot_config.getConfig(0));
 
         turretMotor.getConfigurator().apply(motor_config);
+
+        turretMotor.setPosition(turretEncoder.getAbsolutePosition().getValue());
+
+        var turretPlant = LinearSystemId.createDCMotorSystem(
+            DCMotor.getFalcon500(1), 
+            0.005, // Moment of Inertia
+            50.0   // Gear Ratio (GEAR_RATIO from your Map)
+        );
+
+        turretSim = new DCMotorSim(turretPlant, DCMotor.getFalcon500(1));
 
     }
 
@@ -101,6 +140,8 @@ public class TurretSubsystem extends SubsystemBase {
         return Distance.ofBaseUnits(distance, Meter);
     }
 
+
+
     /**
      * Calculates the angle the turret needs to turn to face the target.
      *
@@ -128,7 +169,7 @@ public class TurretSubsystem extends SubsystemBase {
      */
     public void ActDefault() {
         turretMotor.stopMotor();
-        turretMotor.setNeutralMode(NeutralModeValue.Brake);
+        // turretMotor.setNeutralMode(NeutralModeValue.Coast);
     }
 
     /**
@@ -169,17 +210,18 @@ public class TurretSubsystem extends SubsystemBase {
         turretMotor.setControl(new PositionVoltage(0).withPosition(clampedAngle));
     }
 
+
     /**
      * This method is called periodically by the scheduler. It updates Limelight data and executes the current turret state's action.
      */
     @Override
     public void periodic() {
-        super.periodic();
+        SmartDashboard.putNumber("Turret/turret position", turretMotor.getPosition().getValueAsDouble());
+        SmartDashboard.putNumber("Turret/encoder value", turretEncoder.getAbsolutePosition().getValueAsDouble());
 
         tX = Degrees.of(LimelightHelpers.getTX(""));
         tY = Degrees.of(LimelightHelpers.getTY(""));
         tV = LimelightHelpers.getTV("");
-
 
         switch (currentState) {
             case Home:
@@ -202,5 +244,29 @@ public class TurretSubsystem extends SubsystemBase {
 
         }
 
+
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        motorSimState.setSupplyVoltage(RobotController.getBatteryVoltage());
+        encoderSimState.setSupplyVoltage(RobotController.getBatteryVoltage());
+
+        double motorOutputVoltage = motorSimState.getMotorVoltage();
+
+        turretSim.setInputVoltage(motorOutputVoltage);
+
+        turretSim.update(0.020);
+
+        double mechanismPos = turretSim.getAngularPositionRotations();
+        double mechanismVel = turretSim.getAngularVelocityRPM() / 60.0; // convert to Rotations/Sec
+
+        // Use your GEAR_RATIO to tell the Talon what the motor's shaft is doing
+        motorSimState.setRawRotorPosition(mechanismPos * SENSOR_TO_MECHANISM);
+        motorSimState.setRotorVelocity(mechanismVel * SENSOR_TO_MECHANISM);
+
+        // Update the CANcoder (which is usually on the mechanism itself)
+        encoderSimState.setRawPosition(mechanismPos);
+        encoderSimState.setVelocity(mechanismVel);
     }
 }

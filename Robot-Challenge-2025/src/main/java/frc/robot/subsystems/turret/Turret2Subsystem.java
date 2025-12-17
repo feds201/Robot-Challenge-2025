@@ -1,8 +1,6 @@
 package frc.robot.subsystems.turret;
 
 
-import com.ctre.phoenix6.configs.CANcoderConfiguration;
-import com.ctre.phoenix6.configs.MagnetSensorConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -12,7 +10,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import static edu.wpi.first.units.Units.Degrees;
-import static edu.wpi.first.units.Units.Rotations;
 
 public class Turret2Subsystem extends SubsystemBase {
     TalonFX motor1 = new TalonFX(61);
@@ -47,8 +44,7 @@ public class Turret2Subsystem extends SubsystemBase {
     }
 
     public double getPosition() {
-        return motor1.getPosition().getValue().in(Degrees); // after change
-//        return CANCODER1.getPosition().getValue().in(Degrees); // before change
+        return motor1.getPosition().getValue().in(Degrees);
     }
 
 

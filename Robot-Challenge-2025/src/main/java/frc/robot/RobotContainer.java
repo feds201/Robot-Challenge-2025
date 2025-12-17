@@ -6,6 +6,8 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.subsystems.turret.Turret2Subsystem;
+import frc.robot.subsystems.turret.TurretState;
+import frc.robot.subsystems.turret.TurretSubsystem;
 import frc.robot.utils.DrivetrainConstants;
 import frc.robot.utils.RobotFramework;
 
@@ -17,13 +19,13 @@ public class RobotContainer extends RobotFramework {
 
 
     //   private TurretSubsystem turretSubsystem = new TurretSubsystem();
-    public Turret2Subsystem turret_subsystem =  new Turret2Subsystem();
+    // public Turret2Subsystem turret_subsystem =  new Turret2Subsystem();
+    public TurretSubsystem turretSubsystem = new TurretSubsystem();
     public double test;
   public RobotContainer() {
     configureBindings();
-
   }
-
+  
     private void configureBindings() {
         drivetrain.setDefaultCommand(
                 TeleOpBuilder.buildTankDrive(DrivetrainConstants.getMaxSpeed(), DrivetrainConstants.getMaxAngularSpeed())
@@ -34,6 +36,8 @@ public class RobotContainer extends RobotFramework {
         );
 
         joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
+        joystick.b().whileTrue(turretSubsystem.setState(TurretState.Search));
+
 
 
         // Run SysId routines when holding back/start and X/Y.
