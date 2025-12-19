@@ -12,6 +12,13 @@ import frc.robot.subsystems.swerve.CommandSwerveDrivetrain;
 import frc.robot.subsystems.swerve.generated.TunerConstants;
 import frc.robot.subsystems.turret.TurretState;
 import frc.robot.subsystems.turret.TurretSubsystem;
+import frc.robot.utils.DrivetrainConstants;
+import frc.robot.utils.RobotFramework;
+
+import static frc.robot.utils.DrivetrainConstants.brake;
+
+public class RobotContainer extends RobotFramework {
+//  private final Arm arm = new Arm();
 
 public class RobotContainer {
   private final Arm arm = new Arm();
@@ -23,6 +30,31 @@ public class RobotContainer {
     configureBindings();
     drivetrain.registerTelemetry(telemetry::telemeterize);
   }
+  
+    private void configureBindings() {
+        drivetrain.setDefaultCommand(
+                TeleOpBuilder.buildTankDrive(DrivetrainConstants.getMaxSpeed(), DrivetrainConstants.getMaxAngularSpeed())
+        );
+        final var idle = new SwerveRequest.Idle();
+        RobotModeTriggers.disabled().whileTrue(
+                drivetrain.applyRequest(() -> idle).ignoringDisable(true)
+        );
+
+        joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
+        joystick.b().whileTrue(turretSubsystem.setState(TurretState.Search));
+        joystick.y().whileTrue(turretSubsystem.setState(TurretState.Tracking));
+
+
+
+        // Run SysId routines when holding back/start and X/Y.
+        // Note that each routine should be run exactly once in a single log.
+        joystick.back().and(joystick.y()).whileTrue(drivetrain.sysIdDynamic(SysIdRoutine.Direction.kForward));
+        joystick.back().and(joystick.x()).whileTrue(drivetrain.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+        joystick.start().and(joystick.y()).whileTrue(drivetrain.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+        joystick.start().and(joystick.x()).whileTrue(drivetrain.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+
+        // Reset the field-centric heading on left bumper press.
+        joystick.leftBumper().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
 
   private void configureBindings() {
     controller.a().onTrue(arm.commandState(armState.TARGETING));
@@ -31,6 +63,8 @@ public class RobotContainer {
     controller.x().onTrue(turretSubsystem.setState(TurretState.Default));
     drivetrain.setDefaultCommand(new TeleopSwerve(drivetrain, controller));
     }
+
+
 
     public Command getAutonomousCommand() {
         return Commands.print("No autonomous command configured");
