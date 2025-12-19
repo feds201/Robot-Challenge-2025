@@ -1,6 +1,8 @@
 package frc.robot;
 
 import com.ctre.phoenix6.swerve.SwerveRequest;
+
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
@@ -21,6 +23,7 @@ public class RobotContainer extends RobotFramework {
     //   private TurretSubsystem turretSubsystem = new TurretSubsystem();
     // public Turret2Subsystem turret_subsystem =  new Turret2Subsystem();
     public TurretSubsystem turretSubsystem = new TurretSubsystem();
+    
     public double test;
   public RobotContainer() {
     configureBindings();
@@ -37,6 +40,7 @@ public class RobotContainer extends RobotFramework {
 
         joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
         joystick.b().whileTrue(turretSubsystem.setState(TurretState.Search));
+        joystick.y().whileTrue(turretSubsystem.setState(TurretState.Tracking));
 
 
 

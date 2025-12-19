@@ -16,6 +16,6 @@ public class RobotMap {
         public static final Distance LIMELIGHT_ALTITUDE = Distance.ofBaseUnits(18, Inch);
         public static final Angle LIMELIGHT_MOUNTING_ANGLE = Degree.of(15);
         public static final Distance CAMERA_OFFSET_X = Distance.ofBaseUnits(2, Inch);
-        public static final Distance CAMERA_OFFSET_Y = Distance.ofBaseUnits(3, Inch);
+        public static final Distance CAMERA_OFFSET_Y = Distance.ofBaseUnits(2, Inch);
     }
 }
